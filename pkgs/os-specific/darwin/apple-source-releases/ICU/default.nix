@@ -20,4 +20,8 @@ appleDerivation {
     mv $out/usr/local/include $out/include
     rm -rf $out/usr
   '';
+
+  failureHook = ''
+    cat build/config.log
+  '';
 }

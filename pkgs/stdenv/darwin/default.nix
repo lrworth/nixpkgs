@@ -167,19 +167,38 @@ in rec {
 
   stage0 = stageFun 0 null {
     overrides = self: super: with stage0; {
-      coreutils = { name = "bootstrap-stage0-coreutils"; outPath = bootstrapTools; };
-      gnugrep   = { name = "bootstrap-stage0-gnugrep";   outPath = bootstrapTools; };
+      coreutils = stdenv.mkDerivation {
+        name = "bootstrap-stage0-coreutils";
+        buildCommand = ''
+          mkdir -p $out
+            ln -s ${bootstrapTools}/bin $out/bin
+        '';
+      };
+
+      gnugrep = stdenv.mkDerivation {
+        name = "bootstrap-stage0-gnugrep";
+        buildCommand = ''
+          mkdir -p $out
+            ln -s ${bootstrapTools}/bin $out/bin
+        '';
+      };
 
       darwin = super.darwin // {
         Libsystem = stdenv.mkDerivation {
           name = "bootstrap-stage0-Libsystem";
           buildCommand = ''
             mkdir -p $out
-            ln -s ${bootstrapTools}/lib $out/lib
+            cp -r ${self.darwin.darwin-stubs}/usr/lib $out/lib
+            chmod -R +w $out/lib
+            substituteInPlace $out/lib/libSystem.B.tbd --replace /usr/lib/system $out/lib/system
+            ln -s libSystem.B.tbd $out/lib/libSystem.tbd
             ln -s ${bootstrapTools}/include-Libsystem $out/include
           '';
         };
-        dyld = bootstrapTools;
+
+        darwin-stubs = super.darwin.darwin-stubs.override { inherit (self) stdenv fetchurl; };
+
+        dyld = { name = "bootstrap-stage0-dyld"; outPath = bootstrapTools; };
 
         binutils = lib.makeOverridable (import ../../build-support/bintools-wrapper) {
           shell = "${bootstrapTools}/bin/bash";
@@ -194,10 +213,15 @@ in rec {
       };
 
       llvmPackages_7 = {
-        clang-unwrapped = {
+        clang-unwrapped = stdenv.mkDerivation {
           name = "bootstrap-stage0-clang";
-          outPath = bootstrapTools;
           version = bootstrapClangVersion;
+          buildCommand = ''
+            mkdir -p $out/lib
+            ln -s ${bootstrapTools}/bin $out/bin
+            ln -s ${bootstrapTools}/lib/clang $out/lib/clang
+            ln -s ${bootstrapTools}/include $out/include
+          '';
         };
 
         libcxx = stdenv.mkDerivation {
@@ -268,8 +292,8 @@ in rec {
 
     allowedRequisites =
       [ bootstrapTools ] ++
-      (with pkgs; [ libcxx libcxxabi llvmPackages_7.compiler-rt ]) ++
-      (with pkgs.darwin; [ Libsystem ]);
+      (with pkgs; [ coreutils gnugrep libcxx libcxxabi llvmPackages_7.clang-unwrapped llvmPackages_7.compiler-rt ]) ++
+      (with pkgs.darwin; [ darwin-stubs Libsystem ]);
 
     overrides = persistent;
   };

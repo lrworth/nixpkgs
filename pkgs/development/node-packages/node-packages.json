@@ -9,6 +9,7 @@
 , "@medable/mdctl-cli"
 , "@nerdwallet/shepherd"
 , "@nestjs/cli"
+, "@prettier/plugin-ruby"
 , "@squoosh/cli"
 , "@tailwindcss/language-server"
 , "@vue/cli"
